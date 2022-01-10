@@ -10,9 +10,9 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({ extended: false }));
+const { isValidHttpUrl } = require("./utils");
 
 // Setup DB
-const { nanoid } = require("nanoid");
 require("dotenv").config();
 const mongoose = require("mongoose");
 // const { assert } = require("console");
@@ -23,7 +23,6 @@ mongoose.connect(process.env.MONGO_URI, {
 const { Schema } = mongoose;
 const shortenedUrlSchema = new Schema({
   original_url: { type: String, required: true },
-  short_url: { type: String, required: true },
 });
 let ShortenedUrl = mongoose.model("ShortenedUrl", shortenedUrlSchema);
 async function getUrl(url) {
@@ -53,10 +52,19 @@ app.get("/api/shorturl/:id", (req, res) => {
   }
 });
 
+/**
+ * @endpoint POST /api/shorturl
+ * 
+ * body needs to contain 'url'
+ * if this url is already in the DB, return that object
+ * if not, create a new object and return it
+ * if the server doesn't respond to dns lookup, throw error
+ */
 app.post("/api/shorturl", (req, res) => {
   let { url } = req.body;
-  let hostname = (new URL(url)).hostname;
-  dns.lookup(hostname, (err, address, family) => {
+  let hostname = isValidHttpUrl(url);
+  if (!hostname) res.json({ error: "Invalid URL"})
+  else dns.lookup(hostname, (err, address, family) => {
     if (err) {
       console.error(err);
       res.json({ error: "Invalid Hostname" });
@@ -72,17 +80,17 @@ app.post("/api/shorturl", (req, res) => {
           // if yes, return it
           res.json({
             original_url: urlObject.original_url,
-            short_url: urlObject.short_url,
+            short_url: urlObject._id,
           });
         } else {
           // if no, create a new one and return that
-          const newUrl = new ShortenedUrl({ original_url: url, short_url: nanoid() });
+          const newUrl = new ShortenedUrl({ original_url: url });
           newUrl.save((err) => {
             if (err) res.json({ Error: err });
             else
               res.json({
                 original_url: newUrl.original_url,
-                short_url: newUrl.short_url,
+                short_url: newUrl._id,
               });
           });
         }
