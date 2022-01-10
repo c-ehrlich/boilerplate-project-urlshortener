@@ -3,7 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const dns = require("dns");
 const app = express();
-const assert = require('chai').assert;
+const assert = require("chai").assert;
 
 // Basic Configuration
 const port = process.env.PORT || 3000;
@@ -42,19 +42,20 @@ app.get("/api/hello", function (req, res) {
 });
 
 app.get("/api/shorturl/:id", (req, res) => {
-  id = parseInt(req.params.id);
-  if (isNaN(id)) res.json({ error: "Invalid URL" });
-  else {
-    res.json({ message: req.params.id });
-    // search for a url with this id
-    // if not found, return an error
-    // otherwise, redirect to that url
-  }
+  let promise = ShortenedUrl.findById(req.params.id).exec();
+  assert.ok(promise instanceof Promise);
+  promise.then((urlObject) => {
+    if (urlObject !== null) {
+      res.redirect(urlObject.original_url);
+    } else {
+      res.json({ error: "No short URL found for the given input" });
+    }
+  });
 });
 
 /**
  * @endpoint POST /api/shorturl
- * 
+ *
  * body needs to contain 'url'
  * if this url is already in the DB, return that object
  * if not, create a new object and return it
@@ -63,40 +64,39 @@ app.get("/api/shorturl/:id", (req, res) => {
 app.post("/api/shorturl", (req, res) => {
   let { url } = req.body;
   let hostname = isValidHttpUrl(url);
-  if (!hostname) res.json({ error: "Invalid URL"})
-  else dns.lookup(hostname, (err, address, family) => {
-    if (err) {
-      console.error(err);
-      res.json({ error: "Invalid Hostname" });
-    } else {
-      // check if there is already a DB entry with this url
-      // let urlObject = getUrl(url, returnInput);
-      let promise = ShortenedUrl.findOne({ original_url: url }).exec()
-      assert.ok(promise instanceof Promise);
-      promise.then((urlObject) => {
-        console.log(urlObject);
-        console.log(typeof urlObject);
-        if (urlObject !== null) {
-          // if yes, return it
-          res.json({
-            original_url: urlObject.original_url,
-            short_url: urlObject._id,
-          });
-        } else {
-          // if no, create a new one and return that
-          const newUrl = new ShortenedUrl({ original_url: url });
-          newUrl.save((err) => {
-            if (err) res.json({ Error: err });
-            else
-              res.json({
-                original_url: newUrl.original_url,
-                short_url: newUrl._id,
-              });
-          });
-        }
-      });
-    }
-  });
+  if (!hostname) res.json({ error: "Invalid URL" });
+  else
+    dns.lookup(hostname, (err, address, family) => {
+      if (err) {
+        console.error(err);
+        res.json({ error: "Invalid Hostname" });
+      } else {
+        // check if there is already a DB entry with this url
+        // let urlObject = getUrl(url, returnInput);
+        let promise = ShortenedUrl.findOne({ original_url: url }).exec();
+        assert.ok(promise instanceof Promise);
+        promise.then((urlObject) => {
+          if (urlObject !== null) {
+            // if yes, return it
+            res.json({
+              original_url: urlObject.original_url,
+              short_url: urlObject._id,
+            });
+          } else {
+            // if no, create a new one and return that
+            const newUrl = new ShortenedUrl({ original_url: url });
+            newUrl.save((err) => {
+              if (err) res.json({ Error: err });
+              else
+                res.json({
+                  original_url: newUrl.original_url,
+                  short_url: newUrl._id,
+                });
+            });
+          }
+        });
+      }
+    });
 });
 
 app.listen(port, function () {
