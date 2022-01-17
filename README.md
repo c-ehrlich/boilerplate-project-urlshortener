@@ -10,6 +10,7 @@ Part of the FreeCodeCamp Back End Development Certification.
 * Clone down the repo
 * Create a MongoDB Database. One possbility for this is using [MongoDB Atlas](https://www.freecodecamp.org/news/get-started-with-mongodb-atlas/).
 * In the root directory of the project, create a .env file containing: `MONGO_URI: <your Mongo URI>`
+* `npm i`
 * `npm start`
 
 ## Sample deployment
